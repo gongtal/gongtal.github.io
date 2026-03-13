@@ -264,7 +264,7 @@
     currentIdx=idx;isPlaying=true;
     const item=currentCat.files[idx];
     const audio=document.getElementById('audio');
-    audio.src=`https://drive.google.com/uc?export=download&id=${item.fileId}`;
+    audio.src = item.url;
     audio.play().catch(e=>console.log(e));
     document.getElementById('playerBar').classList.add('active');
     document.getElementById('playerCat').textContent=currentCat.name;
