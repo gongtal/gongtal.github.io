@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영어 구문 교재 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@500;600;700&display=swap');
+
+  :root {
+    --navy: #1a2744; --blue: #2563eb; --light-blue: #dbeafe;
+    --gold: #f59e0b; --green: #059669; --light-green: #d1fae5;
+    --red: #dc2626; --light-red: #fee2e2; --gray: #6b7280;
+    --light-gray: #f3f4f6; --border: #e5e7eb;
+    --naver: #5fcf8a; --naver-dark: #3db96e; --naver-light: #edfaf2;
+    --naver-mid: #b2e8ca; --naver-text: #1a6640; --naver-label: #2a9a55;
+    --google-blue: #4285f4; --google-blue-light: #e8f0fe; --google-blue-mid: #aecbfa;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Noto Sans KR',sans-serif; background:linear-gradient(135deg,#a8e6c1 0%,#c2f0d4 50%,#a8e6c1 100%); min-height:100vh; color:#1f2937; }
+
+  #upload-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:40px 20px; }
+  .logo { font-family:'Arial Black',Impact,sans-serif; font-size:3.2rem; color:#fff; letter-spacing:-2px; font-weight:900; text-transform:uppercase; margin-bottom:6px; }
+  .tagline { color:#2a7a4e; font-size:0.95rem; margin-bottom:10px; font-weight:300; }
+
+  .upload-card { background:rgba(255,255,255,0.97); border-radius:20px; padding:48px 56px; width:100%; max-width:580px; box-shadow:0 32px 80px rgba(0,0,0,0.35),0 0 0 1px rgba(95,207,138,0.15); border:1.5px solid var(--naver-mid); }
+  .upload-card h2 { font-size:1.3rem; font-weight:700; color:var(--navy); margin-bottom:6px; }
+  .upload-card > p { color:var(--gray); font-size:0.88rem; margin-bottom:24px; line-height:1.6; }
+
+  .desktop-tip { color:#fff; font-size:0.82rem; margin-bottom:48px; font-weight:400; background:rgba(0,0,0,0.18); padding:7px 18px; border-radius:20px; letter-spacing:0.2px; }
+
+  /* 헤더 안내 */
+  .header-guide { background:#f8faff; border:1.5px solid #c7d7f5; border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+  .header-guide-title { font-size:0.82rem; font-weight:700; color:#1e3a6e; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .req-badge { background:#4f7ed4; color:#fff; font-size:0.68rem; padding:2px 7px; border-radius:20px; font-weight:700; }
+  .header-cols { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+  .header-col { background:#fff; border:1.5px solid #e2e8f0; border-radius:8px; padding:7px 10px; }
+  .header-col.required { border-color:#7eaadb; background:#ddeaf7; }
+  .header-col.required .col-name { color:#1e3a6e; }
+  .header-col.required .col-desc { color:#4b6cb7; }
+  .col-name { font-family:'Noto Sans KR',sans-serif; font-size:0.82rem; font-weight:700; color:var(--navy); margin-bottom:2px; }
+  .col-desc { font-size:0.72rem; color:var(--gray); }
+  .req-star { color:#e07b3a; margin-left:2px; font-weight:900; }
+  .header-guide-note { font-size:0.77rem; color:#4b6cb7; font-weight:500; }
+
+  /* 소스 탭 */
+  .source-tabs { display:flex; background:var(--light-gray); border-radius:10px; padding:4px; margin-bottom:20px; }
+  .source-tab { flex:1; padding:9px 0; border:none; background:transparent; border-radius:7px; font-size:0.85rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; cursor:pointer; color:var(--gray); transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .source-tab.active { background:#fff; color:var(--navy); box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+  .source-panel { display:none; } .source-panel.active { display:block; }
+
+  /* 엑셀 드롭존 */
+  .drop-zone { border:2.5px dashed var(--naver-mid); border-radius:14px; padding:40px 20px; text-align:center; cursor:pointer; transition:all 0.25s; background:#f2fdf6; margin-bottom:16px; }
+  .drop-zone:hover,.drop-zone.drag-over { border-color:var(--naver); background:var(--naver-light); transform:scale(1.01); }
+  .drop-zone .icon { font-size:2.8rem; margin-bottom:10px; display:block; }
+  .drop-zone p { color:#4b5563; font-size:0.9rem; margin:0; }
+  .drop-zone span { color:var(--naver-dark); font-weight:600; }
+  #file-input { display:none; }
+
+  /* Google Sheets 패널 */
+  .sheets-input-wrap { position:relative; margin-bottom:10px; }
+  .sheets-icon { position:absolute; left:13px; top:50%; transform:translateY(-50%); font-size:1.1rem; pointer-events:none; }
+  .sheets-input { width:100%; padding:13px 14px 13px 42px; border:2px solid var(--google-blue-mid); border-radius:12px; font-size:0.88rem; font-family:'Noto Sans KR',sans-serif; color:#1f2937; background:var(--google-blue-light); transition:border-color 0.2s; outline:none; }
+  .sheets-input:focus { border-color:var(--google-blue); background:#fff; box-shadow:0 0 0 3px rgba(66,133,244,0.15); }
+  .sheets-input::placeholder { color:#9ca3af; }
+
+  .btn-sheets-load { width:100%; padding:13px; background:linear-gradient(135deg,#4285f4,#1a73e8); color:#fff; border:none; border-radius:12px; font-size:0.95rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; cursor:pointer; transition:all 0.25s; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .btn-sheets-load:hover { opacity:0.92; transform:translateY(-1px); box-shadow:0 8px 24px rgba(66,133,244,0.4); }
+  .btn-sheets-load:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+  .sheets-status { margin-top:10px; padding:10px 13px; border-radius:9px; font-size:0.83rem; font-weight:500; display:none; line-height:1.55; white-space:pre-line; }
+  .sheets-status.loading { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; display:block; }
+  .sheets-status.success { background:var(--light-green); color:var(--green); border:1px solid #6ee7b7; display:block; }
+  .sheets-status.error   { background:var(--light-red); color:var(--red); border:1px solid #fca5a5; display:block; }
+
+  /* 컬럼 매핑 */
+  .mapping-box { display:none; background:#fffbeb; border:1.5px solid #fde68a; border-radius:12px; padding:16px 18px; margin-top:12px; }
+  .mapping-box.show { display:block; }
+  .mapping-title { font-size:0.85rem; font-weight:700; color:#92400e; margin-bottom:4px; }
+  .mapping-subtitle { font-size:0.78rem; color:#a16207; margin-bottom:12px; line-height:1.5; }
+  .mapping-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .mapping-row { display:flex; flex-direction:column; gap:4px; }
+  .mapping-label { font-size:0.75rem; font-weight:700; color:#374151; }
+  .mapping-label .req { color:var(--red); }
+  .mapping-select { padding:6px 10px; border:1.5px solid #d1d5db; border-radius:7px; font-size:0.82rem; font-family:'Noto Sans KR',sans-serif; background:#fff; color:#1f2937; }
+  .mapping-select:focus { outline:none; border-color:var(--gold); }
+  .btn-apply-mapping { width:100%; margin-top:12px; padding:10px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; border-radius:9px; font-size:0.88rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; cursor:pointer; }
+  .btn-apply-mapping:hover { opacity:0.9; }
+
+  /* 공통 */
+  .file-info { display:none; background:var(--light-green); border:1.5px solid #6ee7b7; border-radius:10px; padding:10px 14px; font-size:0.85rem; color:var(--green); font-weight:500; margin-bottom:16px; }
+  .divider { height:1px; background:var(--border); margin:20px 0; }
+  .options { margin-bottom:24px; }
+  .options h3 { font-size:0.92rem; font-weight:700; color:var(--navy); margin-bottom:14px; }
+
+  .opt-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .opt-item { display:flex; align-items:center; gap:8px; padding:10px 14px; border:2px solid var(--border); border-radius:10px; cursor:pointer; transition:all 0.2s; font-size:0.85rem; font-weight:500; color:#374151; user-select:none; }
+  .opt-item input[type=checkbox] { display:none; }
+  .opt-item.checked { border-color:var(--naver-dark); background:var(--naver-light); color:var(--naver-dark); }
+  .opt-item .check-box { width:18px; height:18px; border:2px solid #d1d5db; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:#fff; flex-shrink:0; transition:all 0.2s; }
+  .opt-item.checked .check-box { background:var(--naver-dark); border-color:var(--naver-dark); }
+
+  .range-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border:2px solid var(--border); border-radius:10px; font-size:0.85rem; color:#374151; margin-bottom:10px; }
+  .range-row label { font-weight:600; white-space:nowrap; min-width:70px; }
+  .range-row input[type=number] { width:70px; padding:4px 8px; border:1.5px solid #d1d5db; border-radius:6px; font-size:0.85rem; font-family:'JetBrains Mono',monospace; text-align:center; }
+  .range-row span { color:var(--gray); font-size:0.8rem; }
+  .words-per-page-row { display:flex; align-items:center; gap:12px; padding:10px 14px; border:2px solid var(--border); border-radius:10px; font-size:0.85rem; color:#374151; margin-bottom:10px; }
+  .words-per-page-row label { font-weight:600; }
+  .words-per-page-row select { padding:4px 10px; border:1.5px solid #d1d5db; border-radius:6px; font-size:0.85rem; font-family:'Noto Sans KR',sans-serif; }
+
+  .missing-warning-box { background:#fff7ed; border:1.5px solid #fed7aa; border-radius:10px; margin-bottom:12px; overflow:hidden; }
+  .missing-summary { padding:10px 14px; font-size:0.83rem; font-weight:600; color:#c2410c; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
+  .missing-summary:hover { background:#ffedd5; }
+  .missing-toggle { font-size:0.75rem; color:#ea580c; font-weight:500; }
+  .missing-excluded { padding:9px 14px; background:#fef2f2; border-radius:8px; border:1.5px solid #fecaca; font-size:0.8rem; color:#b91c1c; font-weight:500; margin-bottom:6px; }
+  .missing-detail { border-top:1px solid #fed7aa; max-height:180px; overflow-y:auto; }
+  .missing-item { display:flex; align-items:baseline; gap:8px; padding:6px 14px; border-bottom:1px solid #fff0e0; font-size:0.8rem; }
+  .missing-item:last-child { border-bottom:none; }
+  .missing-item-word { font-weight:700; color:#1f2937; min-width:100px; font-family:'Inter',sans-serif; }
+  .missing-item-tags { display:flex; gap:4px; flex-wrap:wrap; }
+  .missing-tag { background:#fee2e2; color:#dc2626; padding:1px 7px; border-radius:20px; font-size:0.72rem; font-weight:600; }
+  .missing-tag-red { background:#fecaca; color:#b91c1c; }
+
+  /* 시트 선택 */
+  .sheet-selector-label { font-size:0.82rem; font-weight:700; color:#374151; margin:12px 0 8px; }
+  #sheet-tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+  .sheet-tab-btn { padding:6px 14px; border:2px solid var(--border); border-radius:20px; background:#fff; font-size:0.82rem; font-weight:600; font-family:'Noto Sans KR',sans-serif; color:#374151; cursor:pointer; transition:all 0.2s; }
+  .sheet-tab-btn:hover { border-color:var(--google-blue); color:var(--google-blue); }
+  .sheet-tab-btn.active { border-color:var(--google-blue); background:var(--google-blue); color:#fff; }
+
+  .missing-info-note { font-size:0.77rem; color:#6b7280; padding:8px 14px 10px; line-height:1.55; }
+
+  .range-warning { display:none; background:#fff7ed; border:1.5px solid #fed7aa; border-radius:8px; padding:8px 12px; font-size:0.8rem; color:#c2410c; font-weight:500; margin-bottom:8px; }
+
+  .btn-generate { width:100%; padding:15px; background:linear-gradient(135deg,var(--naver-dark),#2a9a55); color:#fff; border:none; border-radius:12px; font-size:1rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; cursor:pointer; transition:all 0.25s; letter-spacing:0.5px; }
+  .btn-generate:hover { opacity:0.92; transform:translateY(-1px); box-shadow:0 8px 24px rgba(61,185,110,0.4); }
+  .btn-generate:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+  .loading { display:none; text-align:center; color:var(--gray); padding:12px; font-size:0.9rem; }
+
+  /* 미리보기 */
+  #preview-screen { display:none; }
+  .top-bar { background:rgba(255,255,255,0.98); backdrop-filter:blur(12px); padding:14px 32px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 20px rgba(0,0,0,0.15); gap:16px; flex-wrap:wrap; }
+  .top-bar-left { display:flex; align-items:center; gap:16px; }
+  .top-bar h2 { font-size:1.05rem; font-weight:700; color:var(--navy); }
+  .top-bar-right { display:flex; gap:10px; }
+  .btn { padding:9px 20px; border-radius:8px; border:none; font-size:0.88rem; font-weight:600; font-family:'Noto Sans KR',sans-serif; cursor:pointer; transition:all 0.2s; }
+  .btn-back { background:var(--light-gray); color:#374151; } .btn-back:hover { background:var(--border); }
+  .btn-print { background:linear-gradient(135deg,var(--navy),var(--blue)); color:#fff; } .btn-print:hover { opacity:0.9; transform:translateY(-1px); }
+  #pages-container { padding:32px 20px; display:flex; flex-direction:column; align-items:center; gap:28px; }
+
+  /* ── 페이지 레이아웃 ── */
+  .page { width:277mm; height:210mm; background:#fff; box-shadow:0 8px 40px rgba(0,0,0,0.3); border-radius:4px; padding:5mm 8mm 4mm; position:relative; display:flex; flex-direction:column; box-sizing:border-box; overflow:hidden; }
+  .page-header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:3px; margin-bottom:4px; border-bottom:2px solid var(--navy); flex-shrink:0; }
+  .page-header-left { display:flex; align-items:baseline; gap:10px; }
+  .page-title { font-family:'Playfair Display',serif; font-size:13px; color:var(--navy); font-weight:700; }
+  .page-range { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--blue); font-weight:600; background:var(--light-blue); padding:1px 7px; border-radius:20px; }
+  .page-num { font-size:9px; color:var(--gray); font-weight:400; }
+  .phrases-grid { display:flex; flex-direction:column; gap:2px; width:100%; flex:1; min-height:0; }
+  .page-footer { flex-shrink:0; }
+
+  /* ── 구문 행 ──
+     열 순서/비율: 패턴 20% | 지문 1fr | 해석 1fr | 패턴해설 1fr
+     모든 행/페이지에서 구분선 위치 동일하게 고정 */
+  .phrase-row                                        { display:grid; grid-template-columns:20% minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap:0; border:1px solid var(--border); border-radius:5px; overflow:hidden; width:100%; box-sizing:border-box; min-height:0; }
+  .phrase-row.no-pattern-desc                        { grid-template-columns:20% minmax(0,1fr) minmax(0,1fr); }
+  .phrase-row.no-commentary                          { grid-template-columns:20% minmax(0,1fr) minmax(0,1fr); }
+  .phrase-row.no-pattern-desc.no-commentary          { grid-template-columns:20% minmax(0,1fr); }
+
+  /* 패턴 셀 — 한 줄 고정, 글자 자동 축소 */
+  .cell-pattern { background:#f3f4f6; color:#1f2937; padding:4px 7px; display:flex; flex-direction:column; justify-content:center; border-right:1px solid var(--border); overflow:hidden; min-width:0; min-height:0; }
+  .pattern-num  { font-size:7.5px; color:#9ca3af; font-weight:400; margin-bottom:1px; white-space:nowrap; overflow:hidden; flex-shrink:0; }
+  .pattern-text { font-family:'Inter',sans-serif; font-weight:700; color:#111827; letter-spacing:0.1px; line-height:1.35; white-space:nowrap; overflow:hidden; display:block; flex-shrink:0; }
+
+  /* 패턴해설 셀 */
+  .cell-pattern-desc  { background:#f0f4ff; padding:4px 7px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:5px; border-right:1px solid var(--border); min-width:0; overflow:hidden; min-height:0; }
+  .pattern-desc-label { font-size:7px; font-weight:700; color:#4f46e5; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:2px; white-space:nowrap; flex-shrink:0; }
+  .pattern-desc-text  { color:#3730a3; line-height:1.5; word-break:keep-all; overflow-wrap:break-word; white-space:pre-wrap; overflow:hidden; min-height:0; }
+
+  /* 지문 셀 */
+  .cell-phrase  { background:#f8faff; padding:4px 7px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:5px; border-right:1px solid var(--border); min-width:0; overflow:hidden; min-height:0; }
+  .phrase-label { font-size:7px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:2px; white-space:nowrap; flex-shrink:0; }
+  .phrase-text  { color:#1f2937; font-weight:500; line-height:1.5; word-break:keep-all; overflow-wrap:break-word; white-space:pre-wrap; overflow:hidden; min-height:0; }
+
+  /* 해석 셀 */
+  .cell-commentary  { background:#fffbeb; padding:4px 7px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:5px; border-left:1px solid var(--border); min-width:0; overflow:hidden; min-height:0; }
+  .commentary-label { font-size:7px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:2px; white-space:nowrap; flex-shrink:0; }
+  .commentary-text  { color:#78350f; line-height:1.5; word-break:keep-all; overflow-wrap:break-word; white-space:pre-wrap; overflow:hidden; min-height:0; }
+
+  /* 빈칸 박스 */
+  .blank-box { display:inline-block; width:120px; height:11px; background:#e5e7eb; border-radius:3px; vertical-align:middle; }
+
+  .page-footer { margin-top:4px; display:flex; justify-content:space-between; align-items:center; font-size:7.5px; color:#9ca3af; border-top:1px solid var(--border); padding-top:3px; }
+
+  @media print {
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    body { background:#fff !important; margin:0; padding:0; }
+    #upload-screen { display:none !important; }
+    .top-bar { display:none !important; }
+    #pages-container { padding:0 !important; gap:0 !important; display:block !important; }
+    .page { box-shadow:none !important; border-radius:0 !important; page-break-after:always; break-after:page; width:100% !important; height:210mm !important; margin:0 !important; padding:5mm 8mm 4mm !important; overflow:hidden !important; display:flex !important; flex-direction:column !important; box-sizing:border-box !important; }
+    .page:last-child { page-break-after:avoid; break-after:avoid; }
+    .phrases-grid { flex:1 !important; min-height:0 !important; width:100% !important; display:flex !important; flex-direction:column !important; }
+    .phrase-row { flex:1 !important; min-height:0 !important; overflow:hidden !important; width:100% !important; }
+    .cell-pattern, .cell-phrase, .cell-commentary, .cell-pattern-desc { overflow:hidden !important; min-width:0 !important; min-height:0 !important; }
+    .phrase-text, .commentary-text, .pattern-desc-text { overflow:hidden !important; white-space:pre-wrap !important; word-break:keep-all !important; overflow-wrap:break-word !important; }
+  }
+  @page { size:A4 landscape; margin:0; }
+</style>
+</head>
+<body>
+
+<div id="upload-screen">
+  <div class="logo">GTCLASS</div>
+  <div class="tagline">영어 구문 학습 교재_공시탈출</div>
+  <div class="desktop-tip">🖥️ 데스크톱 환경에서 사용하시면 더 편리합니다</div>
+
+  <div class="upload-card">
+    <h2>📂 구문 데이터 불러오기</h2>
+    <p>엑셀 파일을 업로드하거나, Google Sheets URL을 붙여넣어 교재를 생성하세요.</p>
+
+    <div class="source-tabs">
+      <button class="source-tab active" id="tab-excel" onclick="switchSource('excel')">📊 엑셀 파일 업로드</button>
+      <button class="source-tab" id="tab-sheets" onclick="switchSource('sheets')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#34a853"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Google Sheets 연동
+      </button>
+    </div>
+
+    <!-- 헤더 안내 -->
+    <div class="header-guide">
+      <div class="header-guide-title">📋 1행에 아래 헤더명이 있어야 합니다 <span class="req-badge">필수 *</span></div>
+      <div class="header-cols" style="grid-template-columns:repeat(4,1fr)">
+        <div class="header-col required">
+          <div class="col-name">패턴</div>
+          <div class="col-desc">문장형식/구문 유형<span class="req-star">*</span></div>
+        </div>
+        <div class="header-col required">
+          <div class="col-name">지문</div>
+          <div class="col-desc">해당 패턴 예시 문장<span class="req-star">*</span></div>
+        </div>
+        <div class="header-col">
+          <div class="col-name">해석</div>
+          <div class="col-desc">지문 한국어 해석</div>
+        </div>
+        <div class="header-col">
+          <div class="col-name">패턴해설</div>
+          <div class="col-desc">패턴 구조/응용 설명</div>
+        </div>
+      </div>
+      <div class="header-guide-note">💡 순서는 달라도 괜찮아요. 헤더 이름만 맞으면 자동으로 인식합니다.</div>
+    </div>
+
+    <!-- 엑셀 패널 -->
+    <div class="source-panel active" id="panel-excel">
+      <div class="drop-zone" id="drop-zone">
+        <div id="drop-zone-content" style="pointer-events:none;">
+          <span class="icon">📄</span>
+          <p><span>클릭하거나 파일을 드래그</span>하여 업로드</p>
+          <p style="margin-top:6px;font-size:0.8rem;color:#9ca3af;">.xlsx 파일만 지원</p>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept=".xlsx,.xls">
+    </div>
+
+    <!-- Google Sheets 패널 -->
+    <div class="source-panel" id="panel-sheets">
+      <div class="sheets-input-wrap">
+        <span class="sheets-icon">🔗</span>
+        <input type="text" class="sheets-input" id="sheets-url"
+          placeholder="https://docs.google.com/spreadsheets/d/...">
+      </div>
+      <button class="btn-sheets-load" id="btn-sheets-load" onclick="loadFromSheets()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#fff" fill-opacity=".25"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+        불러오기
+      </button>
+      <div class="sheets-status" id="sheets-status"></div>
+    </div>
+
+    <!-- 컬럼 매핑 -->
+    <div class="mapping-box" id="mapping-box">
+      <div class="mapping-title">🗂️ 컬럼 매핑</div>
+      <div class="mapping-subtitle">일부 헤더를 자동으로 인식하지 못했어요. 각 항목에 맞는 열을 직접 선택해주세요.</div>
+      <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.78rem;color:#92400e;line-height:1.6;">
+        ⚠️ <strong>패턴</strong>과 <strong>지문</strong>은 반드시 올바르게 연결해야 교재가 정상적으로 생성됩니다.<br>
+        해석, 패턴해설은 없으면 <strong>(없음)</strong>으로 두셔도 됩니다.
+      </div>
+      <div class="mapping-grid" id="mapping-grid"></div>
+      <button class="btn-apply-mapping" onclick="applyMapping()">✅ 이 설정으로 불러오기</button>
+    </div>
+
+    <div class="file-info" id="file-info">✅ <span id="file-name"></span></div>
+    <div id="missing-warning" style="display:none"></div>
+    <div class="divider"></div>
+
+    <div class="options">
+      <h3>📋 페이지 구성 설정</h3>
+      <div class="range-row">
+        <label>구문 범위</label>
+        <input type="number" id="range-start" value="1" min="1">
+        <span>번 부터</span>
+        <input type="number" id="range-end" value="50" min="1">
+        <span>번 까지</span>
+      </div>
+      <div id="range-warning" class="range-warning"></div>
+      <div class="words-per-page-row">
+        <label>페이지당 구문 수</label>
+        <select id="words-per-page">
+          <option value="4">4개</option>
+          <option value="6">6개</option>
+          <option value="8">8개</option>
+          <option value="10" selected>10개</option>
+        </select>
+      </div>
+      <div class="opt-grid">
+        <label class="opt-item checked" id="opt-phrase"><input type="checkbox" checked><div class="check-box">✓</div>지문 표시</label>
+        <label class="opt-item checked" id="opt-commentary"><input type="checkbox" checked><div class="check-box">✓</div>해석 표시</label>
+        <label class="opt-item checked" id="opt-pattern-desc"><input type="checkbox" checked><div class="check-box">✓</div>패턴해설 표시</label>
+        <label class="opt-item" id="opt-blank"><input type="checkbox"><div class="check-box"></div>지문 빈칸 모드</label>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">⏳ 교재를 생성하는 중...</div>
+    <button class="btn-generate" id="btn-generate" disabled>교재 PDF 미리보기 생성</button>
+  </div>
+</div>
+
+<div id="preview-screen">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <button class="btn btn-back" id="btn-back">← 돌아가기</button>
+      <h2 id="preview-title">영어 구문 교재</h2>
+    </div>
+    <div class="top-bar-right">
+      <button class="btn btn-print" onclick="window.print()">🖨️ PDF 인쇄 / 저장</button>
+    </div>
+  </div>
+  <div id="pages-container"></div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzvO6iA95sVf3_qY2kzVHTOKvsMZXxENV_UjHxKoD5-Gqv0J7nD0dPeqJaMohDEBVM/exec';
+
+let allPhrases = [];
+let rawSheetData = null;
+
+// ═══════════════════════════════
+// 유틸
+// ═══════════════════════════════
+function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function isEmpty(val) { if (val === undefined || val === null) return true; return String(val).trim() === ''; }
+function isChecked(id) { return document.getElementById(id).querySelector('input').checked; }
+// 패턴 열 너비에 맞게 폰트 크기 자동 축소 (한 줄 유지)
+function calcPatternFontSize(text, baseSize, colWidthPx) {
+  // 영문+특수문자 평균 너비 계수 0.58, 한글은 1.0 배
+  let estimatedWidth = 0;
+  for (const ch of text) {
+    estimatedWidth += /[\u3131-\uD7A3]/.test(ch) ? baseSize * 0.95 : baseSize * 0.58;
+  }
+  if (estimatedWidth <= colWidthPx) return baseSize;
+  const ratio = colWidthPx / estimatedWidth;
+  return Math.max(6, Math.round(baseSize * ratio * 10) / 10);
+}
+
+// ═══════════════════════════════
+// 탭 전환
+// ═══════════════════════════════
+function switchSource(src) {
+  ['excel','sheets'].forEach(s => {
+    document.getElementById('tab-'+s).classList.toggle('active', s===src);
+    document.getElementById('panel-'+s).classList.toggle('active', s===src);
+  });
+  document.getElementById('missing-warning').style.display = 'none';
+  document.getElementById('file-info').style.display = 'none';
+  document.getElementById('mapping-box').classList.remove('show');
+  document.getElementById('range-warning').style.display = 'none';
+  document.getElementById('range-start').value = 1;
+  document.getElementById('range-end').value = 1;
+  document.getElementById('btn-generate').disabled = true;
+  document.getElementById('sheets-status').className = 'sheets-status';
+  document.getElementById('sheets-status').textContent = '';
+  allPhrases = [];
+  rawSheetData = null;
+}
+
+// ═══════════════════════════════
+// 드롭존 헬퍼
+// ═══════════════════════════════
+function setDropZoneContent(html, bg, border) {
+  const dz  = document.getElementById('drop-zone');
+  const dzc = document.getElementById('drop-zone-content');
+  if (!dz || !dzc) return;
+  dz.style.background  = bg     || '';
+  dz.style.borderColor = border || '';
+  dzc.innerHTML = html;
+}
+function resetDropZone() {
+  setDropZoneContent(
+    '<span class="icon">📄</span><p><span>클릭하거나 파일을 드래그</span>하여 업로드</p><p style="margin-top:6px;font-size:0.8rem;color:#9ca3af;">.xlsx 파일만 지원</p>'
+  );
+}
+
+// ═══════════════════════════════
+// UI 초기화
+// ═══════════════════════════════
+function resetUI() {
+  document.getElementById('range-warning').style.display = 'none';
+  document.getElementById('range-start').value = 1;
+  document.getElementById('range-end').value   = 1;
+  document.getElementById('file-info').style.display = 'none';
+  document.getElementById('missing-warning').style.display = 'none';
+  document.getElementById('mapping-box').classList.remove('show');
+  resetDropZone();
+  allPhrases = [];
+  rawSheetData = null;
+}
+
+// ═══════════════════════════════
+// 엑셀 파일 처리
+// ═══════════════════════════════
+function handleFile(file) {
+  if (!file) return;
+  resetUI();
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type: 'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      // raw:false → 셀 값을 문자열로, cellText 유지
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+      const headers = (data[0] || []).map(h => String(h).trim());
+      const rows = [];
+      for (let i = 1; i < data.length; i++) {
+        if (!data[i] || data[i].every(c => c === undefined || c === null || String(c).trim() === '')) continue;
+        const obj = {};
+        headers.forEach((h, j) => {
+          // trim()은 앞뒤 공백/탭만, 내부 줄바꿈(\n)은 보존
+          const raw = (data[i][j] != null) ? String(data[i][j]) : '';
+          obj[h] = raw.replace(/^[\t ]+|[\t ]+$/gm, '').replace(/^\n+|\n+$/g, '');
+        });
+        rows.push(obj);
+      }
+      rawSheetData = { headers, rows, sourceName: file.name };
+      tryAutoMap(rawSheetData);
+    } catch(err) {
+      alert('❌ 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ═══════════════════════════════
+// Google Sheets 불러오기
+// ═══════════════════════════════
+function parseSheetId(url) {
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+function parseGid(url) {
+  const m = url.match(/[#&?]gid=([0-9]+)/);
+  return m ? m[1] : null;
+}
+function showStatus(type, msg) {
+  const el = document.getElementById('sheets-status');
+  el.className = 'sheets-status ' + type;
+  el.textContent = msg;
+}
+
+async function loadFromSheets() {
+  const url = document.getElementById('sheets-url').value.trim();
+  if (!url) { showStatus('error', '❌ Google Sheets URL을 입력해주세요.'); return; }
+  const sheetId = parseSheetId(url);
+  if (!sheetId) { showStatus('error', '❌ 올바른 Google Sheets URL이 아닙니다.'); return; }
+
+  const btn = document.getElementById('btn-sheets-load');
+  btn.disabled = true;
+  resetUI();
+  showStatus('loading', '⏳ 데이터를 불러오는 중...');
+
+  try {
+    const gid    = parseGid(url);
+    const apiUrl = APPS_SCRIPT_URL + '?url=' + encodeURIComponent(url) + (gid ? '&gid=' + gid : '');
+    const res    = await fetch(apiUrl);
+    if (!res.ok) throw new Error('서버 오류 (HTTP ' + res.status + ')');
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '알 수 없는 오류');
+    if (!data.rows || data.rows.length === 0) throw new Error('시트에 데이터가 없습니다. 공유 설정을 확인해주세요.');
+    rawSheetData = { headers: data.headers, rows: data.rows, sourceName: data.sheetName };
+    tryAutoMap(rawSheetData);
+  } catch(err) {
+    showStatus('error', '❌ ' + err.message + '\n\n시트가 "링크 있는 모든 사용자 → 뷰어"로 공개되어 있는지 확인해주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════
+// 헤더 자동 매핑
+// ═══════════════════════════════
+const KEYWORDS = {
+  pattern:     ['패턴','형식','pattern','type','유형','문장형식','구문유형','구분'],
+  phrase:      ['지문','구문','문장','phrase','sentence','본문','영문','english','text','구절'],
+  commentary:   ['해석','translation','interpret','번역','해설','설명','commentary','explanation','comment','풀이'],
+  patternDesc:  ['패턴해설','패턴설명','구문해설','구문설명','구조설명','응용','patternDesc','pattern_desc','structureDesc','구조분석'],
+};
+function detectField(header) {
+  const h = header.toLowerCase().replace(/[\s_\-]/g, '');
+  for (const [field, kws] of Object.entries(KEYWORDS)) {
+    if (kws.some(k => h.includes(k.toLowerCase().replace(/[\s_\-]/g, '')))) return field;
+  }
+  return null;
+}
+
+function tryAutoMap({ headers, rows, sourceName }) {
+  const mapping = {};
+  const unknownHeaders = [];
+  headers.forEach(h => {
+    if (!h.trim()) return;
+    const f = detectField(h);
+    if (f && !mapping[f]) mapping[f] = h;
+    else if (!f) unknownHeaders.push(h);
+  });
+
+  if (mapping.pattern && mapping.phrase && unknownHeaders.length === 0) {
+    applyMappingDirect(mapping, sourceName);
+  } else {
+    showMappingUI(headers, mapping);
+  }
+}
+
+function showMappingUI(headers, guessed) {
+  const NONE   = '(없음)';
+  const fields = [
+    { key:'pattern',     label:'패턴 (구문 유형)', req:true  },
+    { key:'phrase',      label:'지문 (예시 문장)', req:true  },
+    { key:'commentary',  label:'해석',              req:false },
+    { key:'patternDesc', label:'패턴해설',          req:false },
+  ];
+  document.getElementById('mapping-grid').innerHTML = fields.map(f =>
+    '<div class="mapping-row">' +
+    '<div class="mapping-label">' + f.label + (f.req ? ' <span class="req">*</span>' : '') + '</div>' +
+    '<select class="mapping-select" id="map-' + f.key + '">' +
+    '<option value="' + NONE + '">' + NONE + '</option>' +
+    headers.filter(h => h.trim()).map(h =>
+      '<option value="' + escHtml(h) + '"' + (h === (guessed[f.key]||'') ? ' selected' : '') + '>' + escHtml(h) + '</option>'
+    ).join('') +
+    '</select></div>'
+  ).join('');
+  document.getElementById('mapping-box').classList.add('show');
+  setTimeout(() => document.getElementById('mapping-box').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+function applyMapping() {
+  if (!rawSheetData) return;
+  const NONE = '(없음)';
+  const mapping = {};
+  ['pattern','phrase','patternDesc','commentary'].forEach(k => {
+    const el = document.getElementById('map-' + k);
+    if (el && el.value !== NONE) mapping[k] = el.value;
+  });
+  if (!mapping.pattern) { alert('⚠️ "패턴" 컬럼은 반드시 선택해야 합니다.'); return; }
+  if (!mapping.phrase)  { alert('⚠️ "지문" 컬럼은 반드시 선택해야 합니다.'); return; }
+  applyMappingDirect(mapping, rawSheetData.sourceName);
+  document.getElementById('mapping-box').classList.remove('show');
+}
+
+// ═══════════════════════════════
+// 데이터 로드
+// ═══════════════════════════════
+function applyMappingDirect(mapping, sourceName) {
+  allPhrases = [];
+  const missingList  = [];
+  const excludedRows = [];
+
+  rawSheetData.rows.forEach(r => {
+    const patternVal    = mapping.pattern    ? r[mapping.pattern]    : undefined;
+    const phraseVal     = mapping.phrase     ? r[mapping.phrase]     : undefined;
+    const hasPattern    = !isEmpty(patternVal);
+    const hasPhrase     = !isEmpty(phraseVal);
+
+    if (!hasPattern || !hasPhrase) {
+      const m = [];
+      if (!hasPattern) m.push('패턴');
+      if (!hasPhrase)  m.push('지문');
+      excludedRows.push({
+        label:   String(patternVal || phraseVal || '').trim() || '(비어있음)',
+        missing: m
+      });
+      return;
+    }
+    const missing = [];
+    if (mapping.patternDesc && isEmpty(r[mapping.patternDesc])) missing.push('패턴해설');
+    if (mapping.commentary  && isEmpty(r[mapping.commentary]))  missing.push('해설');
+    if (missing.length) missingList.push({ word: String(patternVal).trim(), missing });
+
+    function cleanVal(v) {
+      return String(v || '').replace(/^[\t ]+|[\t ]+$/gm, '').replace(/^\n+|\n+$/g, '');
+    }
+    allPhrases.push({
+      pattern:     cleanVal(patternVal),
+      phrase:      cleanVal(phraseVal),
+      patternDesc: cleanVal(r[mapping.patternDesc]),
+      commentary:  cleanVal(r[mapping.commentary]),
+    });
+  });
+
+  const total = allPhrases.length;
+  document.getElementById('range-end').value   = total;
+  document.getElementById('range-end').max     = total;
+  document.getElementById('range-start').value = 1;
+  document.getElementById('range-start').max   = total;
+  document.getElementById('file-name').textContent = sourceName + ' (총 ' + total + '개 구문)';
+  document.getElementById('file-info').style.display = 'block';
+  document.getElementById('btn-generate').disabled = false;
+
+  if (document.getElementById('tab-sheets').classList.contains('active')) {
+    showStatus('success', '✅ "' + sourceName + '" · 총 ' + total + '개 구문 로드 완료' + (excludedRows.length > 0 ? ' (' + excludedRows.length + '개 행 제외)' : ''));
+  } else {
+    setDropZoneContent(
+      '<span class="icon">✅</span><p style="color:var(--naver-dark);font-weight:700;">' + escHtml(sourceName) + '</p><p style="margin-top:4px;font-size:0.8rem;color:var(--gray);">총 ' + total + '개 구문 로드 완료' + (excludedRows.length > 0 ? ' · ' + excludedRows.length + '개 행 제외' : '') + '</p>',
+      '#f0fdf4', 'var(--naver-dark)'
+    );
+  }
+  renderMissingWarning(missingList, excludedRows);
+}
+
+// ═══════════════════════════════
+// 누락 경고
+// ═══════════════════════════════
+function renderMissingWarning(missingList, excludedRows) {
+  const el = document.getElementById('missing-warning');
+  el.innerHTML = '';
+  el.style.display = 'none';
+  if (!missingList.length && !excludedRows.length) return;
+
+  // 패턴+지문 둘 다 없는 행(완전 빈 행) vs 하나만 없는 행 분리
+  const fullyEmpty  = excludedRows.filter(r => r.missing.includes('패턴') && r.missing.includes('지문'));
+  const partialOnly = excludedRows.filter(r => !(r.missing.includes('패턴') && r.missing.includes('지문')));
+
+  let html = '<div class="missing-warning-box">';
+
+  // 완전 빈 행 → 개수만 표시
+  if (fullyEmpty.length > 0) {
+    html += '<div class="missing-summary" style="cursor:default"><span>🚫 <strong>' + fullyEmpty.length + '개 행</strong>이 제외됐습니다 (패턴·지문 모두 누락)</span></div>';
+  }
+
+  // 패턴 또는 지문 하나만 없는 행 → 기존대로 목록 표시
+  if (partialOnly.length > 0) {
+    const rows = partialOnly.map(r => {
+      const tags = r.missing.map(t => '<span class="missing-tag missing-tag-red">' + t + ' 없음</span>').join('');
+      return '<div class="missing-item"><span class="missing-item-word">' + escHtml(r.label) + '</span><span class="missing-item-tags">' + tags + '</span></div>';
+    }).join('');
+    html += '<div class="missing-summary" onclick="toggleMissingDetail(this)"><span>🚫 <strong>' + partialOnly.length + '개 행</strong>이 제외됐습니다 (패턴 또는 지문 누락)</span><span class="missing-toggle">▼ 목록 보기</span></div><div class="missing-detail" style="display:none">' + rows + '</div>';
+  }
+
+  if (missingList.length > 0) {
+    const rows = missingList.map(m => {
+      const tags = m.missing.map(t => '<span class="missing-tag">' + t + ' 없음</span>').join('');
+      return '<div class="missing-item"><span class="missing-item-word">' + escHtml(m.word) + '</span><span class="missing-item-tags">' + tags + '</span></div>';
+    }).join('');
+    html += '<div class="missing-summary" onclick="toggleMissingDetail(this)"><span>⚠️ <strong>' + missingList.length + '개 구문</strong>에 누락 항목이 있습니다</span><span class="missing-toggle">▼ 목록 보기</span></div><div class="missing-detail" style="display:none">' + rows + '</div>';
+  }
+
+  html += '</div><div class="missing-info-note">💡 <strong>패턴·지문 누락</strong>된 행은 교재에서 제외됩니다. <strong>해설 누락</strong>된 구문은 포함되지만 해당 항목이 빈칸으로 표시됩니다.</div>';
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function toggleMissingDetail(btn) {
+  const detail = btn.nextElementSibling;
+  const toggle = btn.querySelector('.missing-toggle');
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  toggle.textContent   = isOpen ? '▼ 목록 보기' : '▲ 접기';
+}
+
+// ═══════════════════════════════
+// 범위 / DAY 플랜 검증
+// ═══════════════════════════════
+function validateRange() {
+  const total   = allPhrases.length;
+  if (!total) return;
+  const startEl = document.getElementById('range-start');
+  const endEl   = document.getElementById('range-end');
+  const warnEl  = document.getElementById('range-warning');
+  let start = parseInt(startEl.value) || 1;
+  let end   = parseInt(endEl.value)   || 1;
+  let msg = '';
+  if (start < 1) { start = 1; startEl.value = 1; }
+  if (end > total) { end = total; endEl.value = total; msg = '⚠️ 로드된 구문은 총 ' + total + '개입니다. ' + total + '번으로 자동 수정됐어요.'; }
+  if (start > total) { start = 1; startEl.value = 1; msg = '⚠️ 시작 번호가 총 구문 수(' + total + ')를 초과합니다. 1번으로 자동 수정됐어요.'; }
+  if (start > end)   { startEl.value = end; msg = '⚠️ 시작 번호가 끝 번호보다 클 수 없어요.'; }
+  warnEl.textContent = msg;
+  warnEl.style.display = msg ? 'block' : 'none';
+}
+
+// ═══════════════════════════════
+// 교재 생성
+// ═══════════════════════════════
+function generatePDF() {
+  if (!allPhrases.length) return;
+  const loading = document.getElementById('loading');
+  loading.style.display = 'block';
+  document.getElementById('btn-generate').disabled = true;
+
+  setTimeout(() => {
+    const start           = parseInt(document.getElementById('range-start').value) - 1;
+    const end             = parseInt(document.getElementById('range-end').value);
+    const phrasesPerPage  = parseInt(document.getElementById('words-per-page').value);
+    const showPhrase      = isChecked('opt-phrase');
+    const showPatternDesc = isChecked('opt-pattern-desc');
+    const showCommentary  = isChecked('opt-commentary');
+    const blankMode       = isChecked('opt-blank');
+
+    const selected = allPhrases.slice(start, end).map((p, j) => ({ ...p, idx: start + j + 1 }));
+    const container = document.getElementById('pages-container');
+    container.innerHTML = '';
+
+    // 구문 수별 기준 폰트/패딩/갭
+    const SCALE_MAP = { 4:1.3, 6:1.05, 8:0.9, 10:0.78 };
+    const GAP_MAP   = { 4:4,   6:3,    8:2,   10:1    };
+    const PAD_MAP   = { 4:'5px 7px', 6:'4px 6px', 8:'3px 6px', 10:'2px 5px' };
+    const fontScale = SCALE_MAP[phrasesPerPage] ?? (8 / phrasesPerPage);
+    const rowGap    = GAP_MAP[phrasesPerPage]   ?? 2;
+    const cellPad   = PAD_MAP[phrasesPerPage]   ?? '2px 5px';
+    const fs = {
+      patNum: (6.5 * fontScale).toFixed(1),
+      patTxt: (8.5 * fontScale).toFixed(1),
+      lbl:    (6   * fontScale).toFixed(1),
+      pdTxt:  (7.5 * fontScale).toFixed(1),
+      phraTxt:(8   * fontScale).toFixed(1),
+      comTxt: (7.5 * fontScale).toFixed(1),
+    };
+
+    const showPhraseCol      = showPhrase || blankMode;
+    const showPatternDescCol = showPatternDesc;
+    const showCommentaryCol  = showCommentary;
+
+    // ── 행 HTML 생성 ──
+    function makeRowHTML(p, extraStyle) {
+      let rowClass = 'phrase-row';
+      if (!showPatternDescCol) rowClass += ' no-pattern-desc';
+      if (!showCommentaryCol)  rowClass += ' no-commentary';
+      const numLabel = String(p.idx).padStart(4,'0');
+      const patCell =
+        '<div class="cell-pattern" style="padding:' + cellPad + '">' +
+          '<div class="pattern-num" style="font-size:' + fs.patNum + 'px">' + numLabel + '</div>' +
+          '<div class="pattern-text" style="font-size:' + fs.patTxt + 'px">' + escHtml(p.pattern) + '</div>' +
+        '</div>';
+      let phraCell = '';
+      if (showPhraseCol) {
+        const content = blankMode ? '<span class="blank-box"></span>'
+          : '<div class="phrase-text" style="font-size:' + fs.phraTxt + 'px">' + escHtml(p.phrase) + '</div>';
+        phraCell = '<div class="cell-phrase" style="padding:' + cellPad + '">' +
+          '<div class="phrase-label" style="font-size:' + fs.lbl + 'px">Phrase</div>' + content + '</div>';
+      }
+      let comCell = '';
+      if (showCommentaryCol) {
+        comCell = '<div class="cell-commentary" style="padding:' + cellPad + '">' +
+          '<div class="commentary-label" style="font-size:' + fs.lbl + 'px">📝 해석</div>' +
+          '<div class="commentary-text" style="font-size:' + fs.comTxt + 'px">' + escHtml(p.commentary) + '</div></div>';
+      }
+      let pdCell = '';
+      if (showPatternDescCol) {
+        pdCell = '<div class="cell-pattern-desc" style="padding:' + cellPad + '">' +
+          '<div class="pattern-desc-label" style="font-size:' + fs.lbl + 'px">🔍 패턴해설</div>' +
+          '<div class="pattern-desc-text" style="font-size:' + fs.pdTxt + 'px">' + escHtml(p.patternDesc) + '</div></div>';
+      }
+      const style = extraStyle ? ' style="' + extraStyle + '"' : '';
+      return '<div class="' + rowClass + '"' + style + '>' + patCell + phraCell + comCell + pdCell + '</div>';
+    }
+
+    // ── 페이지 그룹 (무조건 n개씩 고정) ──
+    const pageGroups = [];
+    for (let i = 0; i < selected.length; i += phrasesPerPage)
+      pageGroups.push(selected.slice(i, i + phrasesPerPage));
+    const totalPages = pageGroups.length;
+
+    // ── 페이지 DOM 생성 ──
+    pageGroups.forEach((pagePhrases, pi) => {
+      const page = document.createElement('div');
+      page.className = 'page';
+      const firstIdx = pagePhrases[0].idx;
+      const lastIdx  = pagePhrases[pagePhrases.length - 1].idx;
+      page.innerHTML =
+        '<div class="page-header">' +
+          '<div class="page-header-left">' +
+            '<span class="page-title">GTCLASS</span>' +
+            '<span class="page-range"># ' + firstIdx + ' – ' + lastIdx + '</span>' +
+          '</div>' +
+          '<span class="page-num">Page ' + (pi+1) + ' / ' + totalPages + '</span>' +
+        '</div>' +
+        '<div class="phrases-grid" id="grid-' + pi + '" style="gap:' + rowGap + 'px"></div>' +
+        '<div class="page-footer">' +
+          '<span>GTCLASS 영어 구문 교재</span>' +
+          '<span>구문 ' + firstIdx + '번 ~ ' + lastIdx + '번</span>' +
+        '</div>';
+
+      const grid = page.querySelector('#grid-' + pi);
+
+      // 실제 구문 행
+      pagePhrases.forEach(p => grid.insertAdjacentHTML('beforeend', makeRowHTML(p)));
+
+      // 마지막 페이지: 빈 행으로 n등분 유지
+      if (pi === totalPages - 1) {
+        const empty = phrasesPerPage - pagePhrases.length;
+        for (let e = 0; e < empty; e++) {
+          const er = document.createElement('div');
+          er.className = 'phrase-row';
+          er.style.cssText = 'background:transparent;border-color:transparent;pointer-events:none;';
+          grid.appendChild(er);
+        }
+      }
+
+      container.appendChild(page);
+    });
+
+    document.getElementById('preview-title').textContent =
+      '영어 구문 교재 | ' + (start+1) + '번 ~ ' + end + '번 (총 ' + totalPages + '페이지)';
+    document.getElementById('upload-screen').style.display  = 'none';
+    document.getElementById('preview-screen').style.display = 'block';
+    loading.style.display = 'none';
+    document.getElementById('btn-generate').disabled = false;
+
+    // ── DOM 렌더 후: flex:1 균등 분배 → 각 셀 폰트 자동 축소 ──
+    requestAnimationFrame(() => {
+      // 1) 모든 행에 flex:1 적용 → 페이지 높이 안에서 n등분
+      document.querySelectorAll('.phrases-grid').forEach(grid => {
+        grid.querySelectorAll('.phrase-row').forEach(row => {
+          row.style.flex      = '1';
+          row.style.minHeight = '0';
+          row.style.overflow  = 'hidden';
+        });
+      });
+
+      // 2) flex:1 반영 후 실제 행 높이 기준으로 폰트 축소
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.phrase-row').forEach(row => {
+          if (row.style.background === 'transparent') return; // 빈 행 스킵
+          const rowH = row.offsetHeight;
+          if (!rowH) return;
+
+          // 각 셀의 텍스트들을 행 높이에 맞게 축소
+          row.querySelectorAll('.cell-pattern,.cell-phrase,.cell-commentary,.cell-pattern-desc').forEach(cell => {
+            cell.style.overflow  = 'hidden';
+            cell.style.minHeight = '0';
+          });
+
+          // 패턴 셀: 가로 넘침 축소
+          const patCell = row.querySelector('.cell-pattern');
+          if (patCell) {
+            const txt = patCell.querySelector('.pattern-text');
+            if (txt) {
+              const avail = patCell.clientWidth - parseFloat(getComputedStyle(patCell).paddingLeft) - parseFloat(getComputedStyle(patCell).paddingRight);
+              let fs = parseFloat(txt.style.fontSize) || 8;
+              while (txt.scrollWidth > avail + 1 && fs > 4) {
+                fs = Math.max(4, +(fs - 0.5).toFixed(1));
+                txt.style.fontSize = fs + 'px';
+              }
+            }
+          }
+
+          // 텍스트 셀들: 세로 넘침 → 폰트 축소
+          [
+            { sel: '.phrase-text',       lbl: '.phrase-label'        },
+            { sel: '.commentary-text',   lbl: '.commentary-label'    },
+            { sel: '.pattern-desc-text', lbl: '.pattern-desc-label'  },
+          ].forEach(({ sel, lbl }) => {
+            const cell = row.querySelector(sel)?.parentElement;
+            if (!cell) return;
+            const label     = cell.querySelector(lbl);
+            const txt       = cell.querySelector(sel);
+            if (!txt) return;
+            const cellH     = cell.offsetHeight;
+            const lblH      = label ? label.offsetHeight : 0;
+            const padV      = parseFloat(getComputedStyle(cell).paddingTop) + parseFloat(getComputedStyle(cell).paddingBottom);
+            const availTxtH = cellH - lblH - padV;
+            let fSize = parseFloat(txt.style.fontSize) || 8;
+            txt.style.overflow = 'hidden';
+            while (txt.scrollHeight > availTxtH + 2 && fSize > 4) {
+              fSize = Math.max(4, +(fSize - 0.5).toFixed(1));
+              txt.style.fontSize = fSize + 'px';
+            }
+          });
+        });
+      });
+    });
+  }, 100);
+}
+
+// ═══════════════════════════════
+// 이벤트 리스너
+// ═══════════════════════════════
+window.addEventListener('load', () => {
+  // 드롭존
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop',      e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+  fileInput.addEventListener('change',   e => { handleFile(e.target.files[0]); fileInput.value = ''; });
+
+  // 범위
+  document.getElementById('range-start').addEventListener('input', () => { validateRange(); });
+  document.getElementById('range-end').addEventListener('input',   () => { validateRange(); });
+
+  // 체크박스 옵션
+  ['opt-phrase','opt-pattern-desc','opt-commentary','opt-blank'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('click', () => {
+      const cb = el.querySelector('input[type=checkbox]');
+      cb.checked = !cb.checked;
+      el.classList.toggle('checked', cb.checked);
+      el.querySelector('.check-box').textContent = cb.checked ? '✓' : '';
+    });
+  });
+
+  // 버튼
+  document.getElementById('btn-generate').addEventListener('click', generatePDF);
+  document.getElementById('btn-back').addEventListener('click', () => {
+    document.getElementById('preview-screen').style.display = 'none';
+    document.getElementById('upload-screen').style.display  = 'flex';
+  });
+});
+</script>
+</body>
+</html>
