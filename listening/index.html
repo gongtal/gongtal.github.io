@@ -216,7 +216,19 @@
     renderList();
   }
 
-  function goHome(){currentCat=null;currentFiles=[];renderCategories();}
+  function goHome(){
+    const audio=document.getElementById('audio');
+    audio.pause();
+    audio.src='';
+    isPlaying=false;
+    currentIdx=-1;
+    currentCat=null;
+    currentFiles=[];
+    document.getElementById('playerBar').classList.remove('active');
+    document.getElementById('btnPlayMain').textContent='▶';
+    closeModal();
+    renderCategories();
+  }
 
   document.getElementById('searchInput').addEventListener('input',e=>{
     const q=e.target.value.trim().toLowerCase();
@@ -264,7 +276,7 @@
     currentIdx=idx;isPlaying=true;
     const item=currentCat.files[idx];
     const audio=document.getElementById('audio');
-    audio.src = item.url;
+    audio.src = item.url.split("/").map((p,i) => i === 0 ? p : encodeURIComponent(decodeURIComponent(p))).join("/");
     audio.play().catch(e=>console.log(e));
     document.getElementById('playerBar').classList.add('active');
     document.getElementById('playerCat').textContent=currentCat.name;
